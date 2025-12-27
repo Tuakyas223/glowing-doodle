@@ -3,7 +3,7 @@ import uvicorn
 
 app = fastapi.FastAPI()
 
-@app.get("/users", tags=["users"], summary=["getusers"])
+@app.get("/users")
 async def get_users():
     return [{"id": 1, "name": "Artem"}]
 
