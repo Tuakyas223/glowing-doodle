@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Response, Request, Depends
+from fastapi import FastAPI, HTTPException, Response, Request, Depends, Form
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -49,35 +49,43 @@ def verify_password(password: str, hashed: bytes) -> bool:
 # ---------------- API ----------------
 
 @app.post("/register")
-async def register(data: RegisterSchema):
-    if data.username in users_db:
+async def register(
+    username: str = Form(...),
+    password: str = Form(...),
+    hwid: str = Form(...)
+):
+    if username in users_db:
         raise HTTPException(400, "User already exists")
 
-    users_db[data.username] = {
-        "password": hash_password(data.password),
-        "hwid": data.hwid
+    users_db[username] = {
+        "password": hash_password(password),
+        "hwid": hwid
     }
-
     return {"ok": True}
 
+
 @app.post("/login")
-async def login(data: LoginSchema, response: Response):
-    user = users_db.get(data.username)
-    if not user or not verify_password(data.password, user["password"]):
+async def login(
+    response: Response,
+    username: str = Form(...),
+    password: str = Form(...)
+):
+    user = users_db.get(username)
+    if not user or not verify_password(password, user["password"]):
         raise HTTPException(401, "Invalid credentials")
 
-    token = security.create_access_token(uid=data.username)
+    token = security.create_access_token(uid=username)
 
     response.set_cookie(
         key=config.JWT_ACCESS_COOKIE_NAME,
         value=token,
         httponly=True,
         samesite="lax",
-        secure=False,   # TRUE НА HTTPS
-        max_age=60 * 60 * 24,
+        secure=False,
+        max_age=86400,
     )
-
     return {"ok": True}
+
 
 @app.post("/logout")
 async def logout(response: Response):
