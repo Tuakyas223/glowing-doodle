@@ -5,10 +5,11 @@ from fastapi.staticfiles import StaticFiles
 from authx import AuthX, AuthXConfig, TokenPayload
 import uvicorn
 import bcrypt
-
-app = FastAPI()
+from typing import Optional
 
 # ---------------- CONFIG ----------------
+app = FastAPI()
+
 config = AuthXConfig(
     JWT_SECRET_KEY="CHANGE_THIS_SECRET_KEY_123456",
     JWT_ACCESS_COOKIE_NAME="auth_token",
@@ -23,6 +24,7 @@ templates = Jinja2Templates(directory="templates")
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # ---------------- "DATABASE" ----------------
+# username -> {password_hash, hwid}
 users_db: dict[str, dict] = {}
 
 # ---------------- HELPERS ----------------
@@ -31,6 +33,14 @@ def hash_password(password: str) -> bytes:
 
 def verify_password(password: str, hashed: bytes) -> bool:
     return bcrypt.checkpw(password.encode(), hashed)
+
+# ---------------- OPTIONAL AUTH ----------------
+async def optional_auth(request: Request) -> Optional[TokenPayload]:
+    try:
+        token = await security.get_token_from_request(request, locations=None)
+        return security.verify_token(token.raw, verify_type=True)
+    except Exception:
+        return None
 
 # ---------------- AUTH / API ----------------
 @app.post("/register")
@@ -100,13 +110,13 @@ async def me(payload: TokenPayload = security.ACCESS_REQUIRED):
 
 # ---------------- WEB ----------------
 @app.get("/")
-async def login_page(request: Request, payload: TokenPayload = Depends(security.optional_access)):
+async def login_page(request: Request, payload: Optional[TokenPayload] = Depends(optional_auth)):
     if payload:
         return RedirectResponse("/dashboard")
     return templates.TemplateResponse("login.html", {"request": request})
 
 @app.get("/register_page")
-async def register_page(request: Request, payload: TokenPayload = Depends(security.optional_access)):
+async def register_page(request: Request, payload: Optional[TokenPayload] = Depends(optional_auth)):
     if payload:
         return RedirectResponse("/dashboard")
     return templates.TemplateResponse("register.html", {"request": request})
