@@ -1,4 +1,15 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Dashboard</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
 <h2>Dashboard</h2>
-<p>User: {{ username }}</p>
-<p>HWID: {{ hwid }}</p>
-<a href="/logout">Logout</a>
+<p>User: <b>{{ username }}</b></p>
+<p>HWID: <b>{{ hwid }}</b></p>
+<form method="post" action="/logout">
+    <button>Logout</button>
+</form>
+</body>
+</html>

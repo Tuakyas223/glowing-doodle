@@ -1,6 +1,16 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Login</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<h2>Login</h2>
 <form method="post" action="/login">
-  <input name="username" placeholder="username">
-  <input name="password" type="password" placeholder="password">
+  <input name="username" placeholder="Username" required>
+  <input name="password" type="password" placeholder="Password" required>
   <button>Login</button>
 </form>
-<a href="/register_page">Register</a>
+<p>Нет аккаунта? <a href="/register_page">Register</a></p>
+</body>
+</html>
