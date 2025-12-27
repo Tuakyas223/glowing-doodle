@@ -5,6 +5,8 @@ from fastapi.staticfiles import StaticFiles
 from authx import AuthX, AuthXConfig, TokenPayload
 import uvicorn
 import bcrypt
+import platform
+import uuid
 from typing import Optional
 
 # ---------------- CONFIG ----------------
@@ -34,6 +36,15 @@ def hash_password(password: str) -> bytes:
 def verify_password(password: str, hashed: bytes) -> bool:
     return bcrypt.checkpw(password.encode(), hashed)
 
+def generate_hwid() -> str:
+    """
+    Генерируем HWID на основе machine uuid + platform
+    """
+    raw = str(uuid.getnode()) + platform.node() + platform.system() + platform.version()
+    import hashlib, base64
+    sha = hashlib.sha256(raw.encode()).digest()
+    return base64.b64encode(sha).decode()
+
 # ---------------- OPTIONAL AUTH ----------------
 async def optional_auth(request: Request) -> Optional[TokenPayload]:
     try:
@@ -47,7 +58,6 @@ async def optional_auth(request: Request) -> Optional[TokenPayload]:
 async def register(
     username: str = Form(...),
     password: str = Form(...),
-    hwid: str = Form(...),
     response: Response = None
 ):
     if username in users_db:
@@ -56,7 +66,7 @@ async def register(
 
     users_db[username] = {
         "password": hash_password(password),
-        "hwid": hwid
+        "hwid": None  # HWID будет сгенерирован при первом логине
     }
 
     # JWT cookie
@@ -81,6 +91,10 @@ async def login(
     user = users_db.get(username)
     if not user or not verify_password(password, user["password"]):
         raise HTTPException(401, "Invalid credentials")
+
+    # Генерация HWID при первом логине
+    if user["hwid"] is None:
+        user["hwid"] = generate_hwid()
 
     token = security.create_access_token(uid=username)
     resp = RedirectResponse("/dashboard", status_code=303)
@@ -132,7 +146,7 @@ async def dashboard(request: Request, payload: TokenPayload = security.ACCESS_RE
 # ---------------- PROTECTED TEST ----------------
 @app.get("/protected/ping")
 async def protected_ping(payload: TokenPayload = security.ACCESS_REQUIRED):
-    return {"pong": True, "user": payload.sub}
+    return {"pong": True, "user": payload.sub, "hwid": users_db[payload.sub]["hwid"]}
 
 # ---------------- RUN ----------------
 if __name__ == "__main__":
