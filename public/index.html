@@ -56,6 +56,11 @@ canvas.addEventListener('mouseout', () => drawing = false);
 socket.on('drawing', (data) => {
   drawLine(data.x0, data.y0, data.x1, data.y1, false);
 });
+
+// Получаем историю при подключении
+socket.on('drawingHistory', (history) => {
+  history.forEach(line => drawLine(line.x0, line.y0, line.x1, line.y1, false));
+});
 </script>
 </body>
 </html>
