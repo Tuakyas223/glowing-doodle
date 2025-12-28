@@ -1,55 +1,47 @@
-const express = require('express');
-const http = require('http');
-const { Server } = require('socket.io');
-const path = require('path');
-
+const express = require("express");
 const app = express();
-const server = http.createServer(app);
-const io = new Server(server);
 
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.json());
 
-let drawHistory = [];
-let chatHistory = [];
-let users = {};
+const clients = new Map();
+const HEARTBEAT_TIMEOUT = 10_000;
 
-io.on('connection', socket => {
+// heartbeat
+app.post("/heartbeat", (req, res) => {
+  const { id } = req.body;
+  if (!id) return res.sendStatus(400);
 
-  socket.on('join', nick => {
-    users[socket.id] = nick;
-    socket.emit('drawHistory', drawHistory);
-    socket.emit('chatHistory', chatHistory);
-    io.emit('system', `${nick} вошёл`);
-  });
-
-  socket.on('draw', data => {
-    drawHistory.push(data);
-    socket.broadcast.emit('draw', data);
-  });
-
-  socket.on('cursor', data => {
-    socket.broadcast.emit('cursor', {
-      id: socket.id,
-      nick: users[socket.id],
-      ...data
-    });
-  });
-
-  socket.on('chat', text => {
-    const msg = { nick: users[socket.id], text };
-    chatHistory.push(msg);
-    io.emit('chat', msg);
-  });
-
-  socket.on('disconnect', () => {
-    io.emit('removeCursor', socket.id);
-    if (users[socket.id]) {
-      io.emit('system', `${users[socket.id]} вышел`);
-      delete users[socket.id];
-    }
-  });
+  clients.set(id, Date.now());
+  res.sendStatus(200);
 });
 
-server.listen(3000, () => {
-  console.log('http://0.0.0.0:3000');
+// сайт
+app.get("/", (req, res) => {
+  const now = Date.now();
+
+  let online = 0;
+  for (const [_, last] of clients) {
+    if (now - last < HEARTBEAT_TIMEOUT) online++;
+  }
+
+  res.send(`
+    <html>
+      <body style="
+        margin:0;
+        background:black;
+        color:white;
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        font-size:64px;
+        font-family:Arial;
+      ">
+        Online: ${online}
+      </body>
+    </html>
+  `);
+});
+
+app.listen(3000, () => {
+  console.log("Server running on http://localhost:3000");
 });
