@@ -12,27 +12,51 @@ const PORT = 3000;
 app.use(express.static(path.join(__dirname, 'public')));
 
 let drawingHistory = [];
+let chatHistory = [];
+let users = {}; // socket.id -> nickname
 
 io.on('connection', (socket) => {
-  console.log('Новый пользователь подключился');
 
-  // История линий
-  socket.emit('drawingHistory', drawingHistory);
+  socket.on('join', (nickname) => {
+    users[socket.id] = nickname;
 
-  // Линии рисования
+    socket.emit('drawingHistory', drawingHistory);
+    socket.emit('chatHistory', chatHistory);
+
+    io.emit('systemMessage', `${nickname} вошёл`);
+  });
+
   socket.on('drawing', (data) => {
     drawingHistory.push(data);
     socket.broadcast.emit('drawing', data);
   });
 
-  // Чат
-  socket.on('chatMessage', (msg) => {
-    io.emit('chatMessage', msg); // рассылаем всем
+  socket.on('cursor', (data) => {
+    socket.broadcast.emit('cursor', {
+      id: socket.id,
+      nick: users[socket.id],
+      x: data.x,
+      y: data.y
+    });
   });
 
-  socket.on('disconnect', () => console.log('Пользователь отключился'));
+  socket.on('chatMessage', (text) => {
+    const msg = {
+      nick: users[socket.id],
+      text,
+      time: Date.now()
+    };
+    chatHistory.push(msg);
+    io.emit('chatMessage', msg);
+  });
+
+  socket.on('disconnect', () => {
+    const nick = users[socket.id];
+    delete users[socket.id];
+    if (nick) io.emit('systemMessage', `${nick} вышел`);
+  });
 });
 
 server.listen(PORT, () => {
-  console.log(`Сервер запущен на http://0.0.0.0:${PORT}`);
+  console.log(`http://0.0.0.0:${PORT}`);
 });

@@ -2,259 +2,248 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<title>Онлайн Рисовалка с Чатом</title>
+<title>Онлайн Холст</title>
+
 <style>
-  body { margin: 0; font-family: Arial, sans-serif; background: #f0f0f0; display: flex; flex-direction: column; align-items: center; }
-  
-  #controls {
-    margin-top: 10px;
-    display: flex;
-    gap: 15px;
-    padding: 10px 20px;
-    background: #fff;
-    border-radius: 10px;
-    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-    flex-wrap: wrap;
-  }
+body {
+  margin: 0;
+  font-family: Arial;
+  background: #f0f0f0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
 
-  .color-picker, .line-width-picker {
-    display: flex;
-    gap: 5px;
-    align-items: center;
-  }
+#login {
+  position: fixed;
+  inset: 0;
+  background: #000000cc;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
 
-  .color-btn, .eraser-btn {
-    width: 24px;
-    height: 24px;
-    border-radius: 50%;
-    border: 2px solid #fff;
-    cursor: pointer;
-    transition: transform 0.1s;
-  }
+#login input, #login button {
+  padding: 10px;
+  margin-top: 10px;
+  font-size: 16px;
+}
 
-  .color-btn.selected, .eraser-btn.selected {
-    border: 2px solid #000;
-    transform: scale(1.2);
-  }
+#controls {
+  margin-top: 10px;
+  background: #fff;
+  padding: 10px;
+  border-radius: 10px;
+  display: flex;
+  gap: 10px;
+}
 
-  .line-btn {
-    width: 24px;
-    height: 24px;
-    border-radius: 50%;
-    border: 2px solid #555;
-    cursor: pointer;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-  }
+.color-btn, .eraser-btn {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  cursor: pointer;
+  border: 2px solid #ccc;
+}
 
-  .line-btn div {
-    background: #000;
-    width: 50%;
-    border-radius: 50%;
-  }
+.selected {
+  border: 2px solid black;
+}
 
-  .line-btn.selected {
-    border-color: #000;
-  }
+.line-btn {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 2px solid #666;
+  cursor: pointer;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
 
-  canvas {
-    border: 2px solid #333;
-    margin-top: 10px;
-    background: #fff;
-    cursor: crosshair;
-    border-radius: 10px;
-  }
+canvas {
+  margin-top: 10px;
+  background: white;
+  border-radius: 10px;
+  border: 2px solid #333;
+}
 
-  #chat {
-    margin-top: 10px;
-    width: 90%;
-    max-width: 800px;
-    background: #fff;
-    border-radius: 10px;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-    padding: 10px;
-    display: flex;
-    flex-direction: column;
-    height: 200px;
-  }
+#chat {
+  margin-top: 10px;
+  width: 90%;
+  max-width: 800px;
+  background: white;
+  border-radius: 10px;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  height: 200px;
+}
 
-  #messages {
-    flex: 1;
-    overflow-y: auto;
-    margin-bottom: 5px;
-  }
-
-  #messages div {
-    margin-bottom: 3px;
-  }
-
-  #chat input {
-    padding: 5px;
-    border-radius: 5px;
-    border: 1px solid #ccc;
-    flex: 1;
-  }
-
-  #chat button {
-    margin-left: 5px;
-    padding: 5px 10px;
-    border-radius: 5px;
-    border: none;
-    background: #333;
-    color: #fff;
-    cursor: pointer;
-  }
+#messages {
+  flex: 1;
+  overflow-y: auto;
+}
 
 </style>
 </head>
 <body>
 
-<div id="controls">
-  <div class="color-picker">
-    Цвет: 
-    <div class="color-btn" data-color="#000000" style="background:#000000;"></div>
-    <div class="color-btn" data-color="#FF0000" style="background:#FF0000;"></div>
-    <div class="color-btn" data-color="#00FF00" style="background:#00FF00;"></div>
-    <div class="color-btn" data-color="#0000FF" style="background:#0000FF;"></div>
-    <div class="color-btn" data-color="#FFA500" style="background:#FFA500;"></div>
-    <div class="eraser-btn" style="background:#fff;border:2px solid #555;" title="Ластик"></div>
-  </div>
+<!-- LOGIN -->
+<div id="login">
+  <h2 style="color:white">Введите ник</h2>
+  <input id="nickname">
+  <button id="enterBtn">Войти</button>
+</div>
 
-  <div class="line-width-picker">
-    Толщина: 
-    <div class="line-btn" data-width="2"><div style="height:2px;"></div></div>
-    <div class="line-btn" data-width="4"><div style="height:4px;"></div></div>
-    <div class="line-btn" data-width="6"><div style="height:6px;"></div></div>
-    <div class="line-btn" data-width="8"><div style="height:8px;"></div></div>
-  </div>
+<!-- CONTROLS -->
+<div id="controls">
+  <div class="color-btn selected" data-color="#000" style="background:#000"></div>
+  <div class="color-btn" data-color="#f00" style="background:#f00"></div>
+  <div class="color-btn" data-color="#0f0" style="background:#0f0"></div>
+  <div class="color-btn" data-color="#00f" style="background:#00f"></div>
+  <div class="eraser-btn" title="Ластик" style="background:#fff"></div>
+
+  <div class="line-btn selected" data-width="2"><div style="height:2px;width:12px;background:#000"></div></div>
+  <div class="line-btn" data-width="4"><div style="height:4px;width:12px;background:#000"></div></div>
+  <div class="line-btn" data-width="6"><div style="height:6px;width:12px;background:#000"></div></div>
+  <div class="line-btn" data-width="8"><div style="height:8px;width:12px;background:#000"></div></div>
 </div>
 
 <canvas id="canvas"></canvas>
 
+<!-- CHAT -->
 <div id="chat">
   <div id="messages"></div>
-  <div style="display:flex;">
-    <input type="text" id="chatInput" placeholder="Введите сообщение">
-    <button id="sendBtn">Отправить</button>
-  </div>
+  <input id="chatInput" placeholder="Сообщение">
 </div>
 
 <script src="/socket.io/socket.io.js"></script>
 <script>
 const socket = io();
+let nickname = null;
+
+// LOGIN
+document.getElementById('enterBtn').onclick = () => {
+  nickname = document.getElementById('nickname').value.trim();
+  if (!nickname) return;
+  socket.emit('join', nickname);
+  document.getElementById('login').style.display = 'none';
+};
+
+// CANVAS
 const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
 
-// Размеры canvas
-function resizeCanvas() {
+function resize() {
   canvas.width = window.innerWidth;
-  canvas.height = window.innerHeight - document.getElementById('controls').offsetHeight - document.getElementById('chat').offsetHeight - 30;
+  canvas.height = window.innerHeight - 350;
 }
-window.addEventListener('resize', resizeCanvas);
-resizeCanvas();
+resize();
+window.onresize = resize;
 
 let drawing = false;
-let lastX = 0;
-let lastY = 0;
+let lastX, lastY;
+let color = '#000';
+let width = 2;
 
-let color = '#000000';
-let lineWidth = 2;
-
-// Цвет
-document.querySelectorAll('.color-btn').forEach(btn => {
-  btn.addEventListener('click', () => {
-    color = btn.getAttribute('data-color') || '#fff';
-    document.querySelectorAll('.color-btn, .eraser-btn').forEach(b => b.classList.remove('selected'));
-    btn.classList.add('selected');
-  });
+// TOOLS
+document.querySelectorAll('.color-btn').forEach(b => {
+  b.onclick = () => {
+    color = b.dataset.color;
+    document.querySelectorAll('.selected').forEach(x => x.classList.remove('selected'));
+    b.classList.add('selected');
+  };
 });
-document.querySelector('.color-btn').classList.add('selected');
 
-// Ластик
-const eraser = document.querySelector('.eraser-btn');
-eraser.addEventListener('click', () => {
+document.querySelector('.eraser-btn').onclick = () => {
   color = '#fff';
-  document.querySelectorAll('.color-btn, .eraser-btn').forEach(b => b.classList.remove('selected'));
-  eraser.classList.add('selected');
+};
+
+document.querySelectorAll('.line-btn').forEach(b => {
+  b.onclick = () => {
+    width = +b.dataset.width;
+    document.querySelectorAll('.line-btn').forEach(x => x.classList.remove('selected'));
+    b.classList.add('selected');
+  };
 });
 
-// Толщина
-document.querySelectorAll('.line-btn').forEach(btn => {
-  btn.addEventListener('click', () => {
-    lineWidth = parseInt(btn.getAttribute('data-width'));
-    document.querySelectorAll('.line-btn').forEach(b => b.classList.remove('selected'));
-    btn.classList.add('selected');
-  });
-});
-document.querySelector('.line-btn').classList.add('selected');
-
-function getMousePos(e) {
-  const rect = canvas.getBoundingClientRect();
-  return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+// DRAW
+function pos(e) {
+  const r = canvas.getBoundingClientRect();
+  return { x: e.clientX - r.left, y: e.clientY - r.top };
 }
 
-function drawLine(x0, y0, x1, y1, color, width, emit) {
-  ctx.beginPath();
-  ctx.moveTo(x0, y0);
-  ctx.lineTo(x1, y1);
-  ctx.strokeStyle = color;
-  ctx.lineWidth = width;
-  ctx.lineCap = 'round';
-  ctx.stroke();
-  ctx.closePath();
-
-  if (!emit) return;
-  socket.emit('drawing', { x0, y0, x1, y1, color, width });
-}
-
-canvas.addEventListener('mousedown', e => {
+canvas.onmousedown = e => {
   drawing = true;
-  const pos = getMousePos(e);
-  lastX = pos.x;
-  lastY = pos.y;
-});
+  ({x:lastX,y:lastY} = pos(e));
+};
 
-canvas.addEventListener('mousemove', e => {
+canvas.onmousemove = e => {
+  const p = pos(e);
+  socket.emit('cursor', p);
   if (!drawing) return;
-  const pos = getMousePos(e);
-  drawLine(lastX, lastY, pos.x, pos.y, color, lineWidth, true);
-  lastX = pos.x;
-  lastY = pos.y;
-});
+  draw(lastX, lastY, p.x, p.y, color, width, true);
+  lastX = p.x;
+  lastY = p.y;
+};
 
-canvas.addEventListener('mouseup', () => drawing = false);
-canvas.addEventListener('mouseout', () => drawing = false);
+canvas.onmouseup = () => drawing = false;
 
-socket.on('drawing', (data) => {
-  drawLine(data.x0, data.y0, data.x1, data.y1, data.color, data.width, false);
-});
-
-socket.on('drawingHistory', (history) => {
-  history.forEach(line => drawLine(line.x0, line.y0, line.x1, line.y1, line.color, line.width, false));
-});
-
-// Чат
-const chatInput = document.getElementById('chatInput');
-const sendBtn = document.getElementById('sendBtn');
-const messages = document.getElementById('messages');
-
-sendBtn.addEventListener('click', sendMessage);
-chatInput.addEventListener('keypress', e => { if(e.key==='Enter') sendMessage(); });
-
-function sendMessage() {
-  const msg = chatInput.value.trim();
-  if(!msg) return;
-  socket.emit('chatMessage', msg);
-  chatInput.value = '';
+function draw(x0,y0,x1,y1,c,w,emit){
+  ctx.beginPath();
+  ctx.moveTo(x0,y0);
+  ctx.lineTo(x1,y1);
+  ctx.strokeStyle=c;
+  ctx.lineWidth=w;
+  ctx.lineCap='round';
+  ctx.stroke();
+  if(emit) socket.emit('drawing',{x0,y0,x1,y1,color:c,width:w});
 }
 
-socket.on('chatMessage', msg => {
-  const div = document.createElement('div');
-  div.textContent = msg;
-  messages.appendChild(div);
-  messages.scrollTop = messages.scrollHeight;
-});
+// SOCKET
+socket.on('drawing', d => draw(d.x0,d.y0,d.x1,d.y1,d.color,d.width));
+socket.on('drawingHistory', h => h.forEach(d => draw(d.x0,d.y0,d.x1,d.y1,d.color,d.width)));
+
+// CURSORS
+const cursors = {};
+socket.on('cursor', d => cursors[d.id] = d);
+
+setInterval(() => {
+  ctx.clearRect(0,0,0,0);
+  Object.values(cursors).forEach(c => {
+    ctx.fillStyle='red';
+    ctx.fillRect(c.x,c.y,4,4);
+    ctx.fillText(c.nick,c.x+6,c.y);
+  });
+},50);
+
+// CHAT
+const messages = document.getElementById('messages');
+const input = document.getElementById('chatInput');
+let lastSend = 0;
+
+input.onkeydown = e => {
+  if(e.key==='Enter'){
+    if(Date.now()-lastSend<1000) return;
+    socket.emit('chatMessage', input.value);
+    input.value='';
+    lastSend=Date.now();
+  }
+};
+
+socket.on('chatHistory', h => h.forEach(addMsg));
+socket.on('chatMessage', addMsg);
+socket.on('systemMessage', t => addMsg({nick:'*',text:t}));
+
+function addMsg(m){
+  const d=document.createElement('div');
+  d.textContent=`[${m.nick}] ${m.text}`;
+  messages.appendChild(d);
+  messages.scrollTop=messages.scrollHeight;
+}
 </script>
 </body>
 </html>
