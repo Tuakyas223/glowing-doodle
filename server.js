@@ -7,56 +7,49 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
-const PORT = 3000;
-
 app.use(express.static(path.join(__dirname, 'public')));
 
-let drawingHistory = [];
+let drawHistory = [];
 let chatHistory = [];
-let users = {}; // socket.id -> nickname
+let users = {};
 
-io.on('connection', (socket) => {
+io.on('connection', socket => {
 
-  socket.on('join', (nickname) => {
-    users[socket.id] = nickname;
-
-    socket.emit('drawingHistory', drawingHistory);
+  socket.on('join', nick => {
+    users[socket.id] = nick;
+    socket.emit('drawHistory', drawHistory);
     socket.emit('chatHistory', chatHistory);
-
-    io.emit('systemMessage', `${nickname} вошёл`);
+    io.emit('system', `${nick} вошёл`);
   });
 
-  socket.on('drawing', (data) => {
-    drawingHistory.push(data);
-    socket.broadcast.emit('drawing', data);
+  socket.on('draw', data => {
+    drawHistory.push(data);
+    socket.broadcast.emit('draw', data);
   });
 
-  socket.on('cursor', (data) => {
+  socket.on('cursor', data => {
     socket.broadcast.emit('cursor', {
       id: socket.id,
       nick: users[socket.id],
-      x: data.x,
-      y: data.y
+      ...data
     });
   });
 
-  socket.on('chatMessage', (text) => {
-    const msg = {
-      nick: users[socket.id],
-      text,
-      time: Date.now()
-    };
+  socket.on('chat', text => {
+    const msg = { nick: users[socket.id], text };
     chatHistory.push(msg);
-    io.emit('chatMessage', msg);
+    io.emit('chat', msg);
   });
 
   socket.on('disconnect', () => {
-    const nick = users[socket.id];
-    delete users[socket.id];
-    if (nick) io.emit('systemMessage', `${nick} вышел`);
+    io.emit('removeCursor', socket.id);
+    if (users[socket.id]) {
+      io.emit('system', `${users[socket.id]} вышел`);
+      delete users[socket.id];
+    }
   });
 });
 
-server.listen(PORT, () => {
-  console.log(`http://0.0.0.0:${PORT}`);
+server.listen(3000, () => {
+  console.log('http://0.0.0.0:3000');
 });
