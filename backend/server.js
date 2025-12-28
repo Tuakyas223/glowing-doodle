@@ -10,10 +10,9 @@ const PORT = 3000;
 app.use(cors());
 app.use(bodyParser.json());
 
-mongoose.connect('mongodb://127.0.0.1:27017/minisite', {
-  useNewUrlParser: true,
-  useUnifiedTopology: true
-}).then(() => console.log('MongoDB connected'));
+mongoose.connect('mongodb://127.0.0.1:27017/minisite')
+  .then(() => console.log('MongoDB connected'))
+  .catch(err => console.log(err));
 
 app.use('/api/auth', authRoutes);
 
