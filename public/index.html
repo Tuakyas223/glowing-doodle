@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<title>Онлайн Рисовалка</title>
+<style>
+  body { margin: 0; }
+  canvas { border: 1px solid black; display: block; margin: auto; }
+</style>
+</head>
+<body>
+<canvas id="canvas"></canvas>
+<script src="/socket.io/socket.io.js"></script>
+<script>
+const socket = io();
+
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
+
+let drawing = false;
+let lastX = 0;
+let lastY = 0;
+
+function drawLine(x0, y0, x1, y1, emit){
+  ctx.beginPath();
+  ctx.moveTo(x0, y0);
+  ctx.lineTo(x1, y1);
+  ctx.strokeStyle = 'black';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  ctx.closePath();
+
+  if (!emit) return;
+  socket.emit('drawing', { x0, y0, x1, y1 });
+}
+
+canvas.addEventListener('mousedown', e => {
+  drawing = true;
+  lastX = e.clientX;
+  lastY = e.clientY;
+});
+
+canvas.addEventListener('mousemove', e => {
+  if (!drawing) return;
+  drawLine(lastX, lastY, e.clientX, e.clientY, true);
+  lastX = e.clientX;
+  lastY = e.clientY;
+});
+
+canvas.addEventListener('mouseup', () => drawing = false);
+canvas.addEventListener('mouseout', () => drawing = false);
+
+// Получаем линии от других клиентов
+socket.on('drawing', (data) => {
+  drawLine(data.x0, data.y0, data.x1, data.y1, false);
+});
+</script>
+</body>
+</html>

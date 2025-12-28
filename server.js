@@ -1,26 +1,30 @@
-const https = require('https');
-const fs = require('fs');
+const express = require('express');
+const http = require('http');
+const { Server } = require('socket.io');
 const path = require('path');
 
-const hostname = '0.0.0.0';
-const port = 3001;
+const app = express();
+const server = http.createServer(app);
+const io = new Server(server);
 
-// Читаем сертификаты
-const options = {
-  key: fs.readFileSync(path.join(__dirname, 'server.key')),
-  cert: fs.readFileSync(path.join(__dirname, 'server.cert'))
-};
+const PORT = 3000;
 
-// Читаем HTML файл
-const htmlFilePath = path.join(__dirname, 'index.html');
-const htmlContent = fs.readFileSync(htmlFilePath, 'utf-8');
+// Раздаем статические файлы из папки public
+app.use(express.static(path.join(__dirname, 'public')));
 
-const server = https.createServer(options, (req, res) => {
-  res.writeHead(200, {'Content-Type': 'text/html; charset=utf-8'});
-  res.end(htmlContent);
+io.on('connection', (socket) => {
+  console.log('Новый пользователь подключился');
+
+  // Получаем рисование от одного клиента и шлем всем остальным
+  socket.on('drawing', (data) => {
+    socket.broadcast.emit('drawing', data);
+  });
+
+  socket.on('disconnect', () => {
+    console.log('Пользователь отключился');
+  });
 });
 
-server.listen(port, hostname, () => {
-  console.log(`HTTPS сервер запущен на https://${hostname}:${port}/`);
+server.listen(PORT, () => {
+  console.log(`Сервер запущен на http://0.0.0.0:${PORT}`);
 });
-
