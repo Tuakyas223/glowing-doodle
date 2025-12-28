@@ -4,23 +4,87 @@
 <meta charset="UTF-8">
 <title>Онлайн Рисовалка</title>
 <style>
-  body { margin: 0; display: flex; flex-direction: column; align-items: center; }
-  canvas { border: 1px solid black; display: block; margin-top: 10px; }
-  #controls { margin-top: 10px; }
+  body { margin: 0; font-family: Arial, sans-serif; background: #f0f0f0; display: flex; flex-direction: column; align-items: center; }
+  
+  #controls {
+    margin-top: 10px;
+    display: flex;
+    gap: 20px;
+    padding: 10px 20px;
+    background: #fff;
+    border-radius: 10px;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+  }
+
+  .color-picker, .line-width-picker {
+    display: flex;
+    gap: 5px;
+    align-items: center;
+  }
+
+  .color-btn {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    border: 2px solid #fff;
+    cursor: pointer;
+    transition: transform 0.1s;
+  }
+
+  .color-btn.selected {
+    border: 2px solid #000;
+    transform: scale(1.2);
+  }
+
+  .line-btn {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    border: 2px solid #555;
+    cursor: pointer;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+
+  .line-btn div {
+    background: #000;
+    width: 50%;
+    border-radius: 50%;
+  }
+
+  .line-btn.selected {
+    border-color: #000;
+  }
+
+  canvas {
+    border: 2px solid #333;
+    margin-top: 10px;
+    background: #fff;
+    cursor: crosshair;
+    border-radius: 10px;
+  }
 </style>
 </head>
 <body>
 
 <div id="controls">
-  Цвет: 
-  <input type="color" id="colorPicker" value="#000000">
-  Толщина: 
-  <select id="lineWidth">
-    <option value="2">2px</option>
-    <option value="4">4px</option>
-    <option value="6">6px</option>
-    <option value="8">8px</option>
-  </select>
+  <div class="color-picker">
+    Цвет: 
+    <div class="color-btn" data-color="#000000" style="background:#000000;"></div>
+    <div class="color-btn" data-color="#FF0000" style="background:#FF0000;"></div>
+    <div class="color-btn" data-color="#00FF00" style="background:#00FF00;"></div>
+    <div class="color-btn" data-color="#0000FF" style="background:#0000FF;"></div>
+    <div class="color-btn" data-color="#FFA500" style="background:#FFA500;"></div>
+  </div>
+
+  <div class="line-width-picker">
+    Толщина: 
+    <div class="line-btn" data-width="2"><div style="height:2px;"></div></div>
+    <div class="line-btn" data-width="4"><div style="height:4px;"></div></div>
+    <div class="line-btn" data-width="6"><div style="height:6px;"></div></div>
+    <div class="line-btn" data-width="8"><div style="height:8px;"></div></div>
+  </div>
 </div>
 
 <canvas id="canvas"></canvas>
@@ -32,32 +96,48 @@ const socket = io();
 const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
 
-// Устанавливаем размеры canvas
+// Настраиваем размеры canvas
 function resizeCanvas() {
   canvas.width = window.innerWidth;
-  canvas.height = window.innerHeight - document.getElementById('controls').offsetHeight - 10;
+  canvas.height = window.innerHeight - document.getElementById('controls').offsetHeight - 20;
 }
 window.addEventListener('resize', resizeCanvas);
 resizeCanvas();
+
+// Начальные значения кисти
+let color = '#000000';
+let lineWidth = 2;
 
 let drawing = false;
 let lastX = 0;
 let lastY = 0;
 
-// Настройки кисти
-let color = document.getElementById('colorPicker').value;
-let lineWidth = parseInt(document.getElementById('lineWidth').value);
+// Кастомный выбор цвета
+document.querySelectorAll('.color-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    color = btn.getAttribute('data-color');
+    document.querySelectorAll('.color-btn').forEach(b => b.classList.remove('selected'));
+    btn.classList.add('selected');
+  });
+});
+// По умолчанию выбираем первый цвет
+document.querySelector('.color-btn').classList.add('selected');
 
-document.getElementById('colorPicker').addEventListener('input', e => color = e.target.value);
-document.getElementById('lineWidth').addEventListener('change', e => lineWidth = parseInt(e.target.value));
+// Кастомный выбор толщины
+document.querySelectorAll('.line-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    lineWidth = parseInt(btn.getAttribute('data-width'));
+    document.querySelectorAll('.line-btn').forEach(b => b.classList.remove('selected'));
+    btn.classList.add('selected');
+  });
+});
+// По умолчанию выбираем первый размер
+document.querySelector('.line-btn').classList.add('selected');
 
-// Преобразуем координаты мыши относительно canvas
+// Получаем позицию мыши относительно canvas
 function getMousePos(e) {
   const rect = canvas.getBoundingClientRect();
-  return {
-    x: e.clientX - rect.left,
-    y: e.clientY - rect.top
-  };
+  return { x: e.clientX - rect.left, y: e.clientY - rect.top };
 }
 
 // Рисуем линию
@@ -67,6 +147,7 @@ function drawLine(x0, y0, x1, y1, color, width, emit) {
   ctx.lineTo(x1, y1);
   ctx.strokeStyle = color;
   ctx.lineWidth = width;
+  ctx.lineCap = 'round';
   ctx.stroke();
   ctx.closePath();
 
@@ -93,12 +174,12 @@ canvas.addEventListener('mousemove', e => {
 canvas.addEventListener('mouseup', () => drawing = false);
 canvas.addEventListener('mouseout', () => drawing = false);
 
-// Получаем линии от других клиентов
+// Получаем линии от других пользователей
 socket.on('drawing', (data) => {
   drawLine(data.x0, data.y0, data.x1, data.y1, data.color, data.width, false);
 });
 
-// Получаем историю при подключении
+// История линий
 socket.on('drawingHistory', (history) => {
   history.forEach(line => drawLine(line.x0, line.y0, line.x1, line.y1, line.color, line.width, false));
 });
