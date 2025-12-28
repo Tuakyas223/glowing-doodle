@@ -2,13 +2,14 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<title>Онлайн Холст</title>
+<title>Online Board</title>
 
 <style>
 body {
   margin: 0;
-  font-family: Arial;
-  background: #f0f0f0;
+  font-family: Inter, system-ui, Arial;
+  background: radial-gradient(circle at top, #1e1e2f, #0f0f18);
+  color: #fff;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -17,69 +18,71 @@ body {
 #login {
   position: fixed;
   inset: 0;
-  background: #000000cc;
+  background: #000a;
   display: flex;
-  flex-direction: column;
   justify-content: center;
   align-items: center;
   z-index: 1000;
 }
 
-#login input, #login button {
+#loginBox {
+  background: rgba(255,255,255,0.1);
+  backdrop-filter: blur(10px);
+  padding: 30px;
+  border-radius: 16px;
+}
+
+#login input {
   padding: 10px;
-  margin-top: 10px;
-  font-size: 16px;
+  width: 200px;
 }
 
 #controls {
   margin-top: 10px;
-  background: #fff;
-  padding: 10px;
-  border-radius: 10px;
+  padding: 12px 18px;
   display: flex;
   gap: 10px;
+  background: rgba(255,255,255,0.08);
+  backdrop-filter: blur(10px);
+  border-radius: 16px;
 }
 
-.color-btn, .eraser-btn {
-  width: 24px;
-  height: 24px;
+.color, .eraser, .size {
+  width: 26px;
+  height: 26px;
   border-radius: 50%;
   cursor: pointer;
-  border: 2px solid #ccc;
+  border: 2px solid #aaa;
 }
 
-.selected {
-  border: 2px solid black;
+.active {
+  box-shadow: 0 0 0 3px #fff;
 }
 
-.line-btn {
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  border: 2px solid #666;
-  cursor: pointer;
-  display: flex;
-  justify-content: center;
-  align-items: center;
+#board {
+  position: relative;
+  margin-top: 10px;
 }
 
 canvas {
-  margin-top: 10px;
+  position: absolute;
+  left: 0;
+  top: 0;
   background: white;
-  border-radius: 10px;
-  border: 2px solid #333;
+  border-radius: 16px;
 }
 
 #chat {
   margin-top: 10px;
   width: 90%;
-  max-width: 800px;
-  background: white;
-  border-radius: 10px;
+  max-width: 900px;
+  height: 200px;
+  background: rgba(255,255,255,0.08);
+  backdrop-filter: blur(10px);
+  border-radius: 16px;
   padding: 10px;
   display: flex;
   flex-direction: column;
-  height: 200px;
 }
 
 #messages {
@@ -87,34 +90,40 @@ canvas {
   overflow-y: auto;
 }
 
+#chat input {
+  padding: 10px;
+  border-radius: 10px;
+  border: none;
+}
 </style>
 </head>
 <body>
 
-<!-- LOGIN -->
 <div id="login">
-  <h2 style="color:white">Введите ник</h2>
-  <input id="nickname">
-  <button id="enterBtn">Войти</button>
+  <div id="loginBox">
+    <h3>Введите ник</h3>
+    <input id="nick">
+    <button onclick="join()">Войти</button>
+  </div>
 </div>
 
-<!-- CONTROLS -->
 <div id="controls">
-  <div class="color-btn selected" data-color="#000" style="background:#000"></div>
-  <div class="color-btn" data-color="#f00" style="background:#f00"></div>
-  <div class="color-btn" data-color="#0f0" style="background:#0f0"></div>
-  <div class="color-btn" data-color="#00f" style="background:#00f"></div>
-  <div class="eraser-btn" title="Ластик" style="background:#fff"></div>
-
-  <div class="line-btn selected" data-width="2"><div style="height:2px;width:12px;background:#000"></div></div>
-  <div class="line-btn" data-width="4"><div style="height:4px;width:12px;background:#000"></div></div>
-  <div class="line-btn" data-width="6"><div style="height:6px;width:12px;background:#000"></div></div>
-  <div class="line-btn" data-width="8"><div style="height:8px;width:12px;background:#000"></div></div>
+  <div class="color active" data-c="#000" style="background:#000"></div>
+  <div class="color" data-c="#f00" style="background:#f00"></div>
+  <div class="color" data-c="#0f0" style="background:#0f0"></div>
+  <div class="color" data-c="#00f" style="background:#00f"></div>
+  <div class="eraser" title="Ластик"></div>
+  <div class="size active" data-s="2"></div>
+  <div class="size" data-s="4"></div>
+  <div class="size" data-s="6"></div>
+  <div class="size" data-s="8"></div>
 </div>
 
-<canvas id="canvas"></canvas>
+<div id="board">
+  <canvas id="draw"></canvas>
+  <canvas id="cursor"></canvas>
+</div>
 
-<!-- CHAT -->
 <div id="chat">
   <div id="messages"></div>
   <input id="chatInput" placeholder="Сообщение">
@@ -123,126 +132,131 @@ canvas {
 <script src="/socket.io/socket.io.js"></script>
 <script>
 const socket = io();
-let nickname = null;
 
-// LOGIN
-document.getElementById('enterBtn').onclick = () => {
-  nickname = document.getElementById('nickname').value.trim();
-  if (!nickname) return;
-  socket.emit('join', nickname);
-  document.getElementById('login').style.display = 'none';
-};
-
-// CANVAS
-const canvas = document.getElementById('canvas');
-const ctx = canvas.getContext('2d');
-
-function resize() {
-  canvas.width = window.innerWidth;
-  canvas.height = window.innerHeight - 350;
+function join(){
+  const n = nick.value.trim();
+  if(!n) return;
+  socket.emit('join', n);
+  login.style.display = 'none';
 }
-resize();
-window.onresize = resize;
 
-let drawing = false;
-let lastX, lastY;
+// CANVAS SETUP
+const drawC = draw.getContext('2d');
+const cursorC = cursor.getContext('2d');
+
+function resize(){
+  const w = window.innerWidth - 40;
+  const h = window.innerHeight - 420;
+  draw.width = cursor.width = w;
+  draw.height = cursor.height = h;
+}
+resize(); window.onresize = resize;
+
 let color = '#000';
-let width = 2;
+let size = 2;
+let drawing = false;
+let lx, ly;
 
 // TOOLS
-document.querySelectorAll('.color-btn').forEach(b => {
-  b.onclick = () => {
-    color = b.dataset.color;
-    document.querySelectorAll('.selected').forEach(x => x.classList.remove('selected'));
-    b.classList.add('selected');
+document.querySelectorAll('.color').forEach(b=>{
+  b.onclick=()=>{
+    color=b.dataset.c;
+    document.querySelectorAll('.active').forEach(x=>x.classList.remove('active'));
+    b.classList.add('active');
   };
 });
-
-document.querySelector('.eraser-btn').onclick = () => {
-  color = '#fff';
-};
-
-document.querySelectorAll('.line-btn').forEach(b => {
-  b.onclick = () => {
-    width = +b.dataset.width;
-    document.querySelectorAll('.line-btn').forEach(x => x.classList.remove('selected'));
-    b.classList.add('selected');
+document.querySelector('.eraser').onclick=()=>color='#fff';
+document.querySelectorAll('.size').forEach(b=>{
+  b.onclick=()=>{
+    size=+b.dataset.s;
+    document.querySelectorAll('.size').forEach(x=>x.classList.remove('active'));
+    b.classList.add('active');
   };
 });
 
 // DRAW
-function pos(e) {
-  const r = canvas.getBoundingClientRect();
-  return { x: e.clientX - r.left, y: e.clientY - r.top };
+function pos(e){
+  const r = draw.getBoundingClientRect();
+  return {x:e.clientX-r.left,y:e.clientY-r.top};
 }
 
-canvas.onmousedown = e => {
-  drawing = true;
-  ({x:lastX,y:lastY} = pos(e));
+draw.onmousedown=e=>{
+  drawing=true;
+  ({x:lx,y:ly}=pos(e));
 };
 
-canvas.onmousemove = e => {
-  const p = pos(e);
-  socket.emit('cursor', p);
-  if (!drawing) return;
-  draw(lastX, lastY, p.x, p.y, color, width, true);
-  lastX = p.x;
-  lastY = p.y;
+draw.onmousemove=e=>{
+  const p=pos(e);
+  socket.emit('cursor',{...p,color});
+  if(!drawing) return;
+  line(lx,ly,p.x,p.y,color,size,true);
+  lx=p.x; ly=p.y;
 };
 
-canvas.onmouseup = () => drawing = false;
+draw.onmouseup=()=>drawing=false;
 
-function draw(x0,y0,x1,y1,c,w,emit){
-  ctx.beginPath();
-  ctx.moveTo(x0,y0);
-  ctx.lineTo(x1,y1);
-  ctx.strokeStyle=c;
-  ctx.lineWidth=w;
-  ctx.lineCap='round';
-  ctx.stroke();
-  if(emit) socket.emit('drawing',{x0,y0,x1,y1,color:c,width:w});
+function line(x0,y0,x1,y1,c,s,emit){
+  drawC.beginPath();
+  drawC.moveTo(x0,y0);
+  drawC.lineTo(x1,y1);
+  drawC.strokeStyle=c;
+  drawC.lineWidth=s;
+  drawC.lineCap='round';
+  drawC.stroke();
+  if(emit) socket.emit('drawing',{x0,y0,x1,y1,color:c,width:s});
 }
 
-// SOCKET
-socket.on('drawing', d => draw(d.x0,d.y0,d.x1,d.y1,d.color,d.width));
-socket.on('drawingHistory', h => h.forEach(d => draw(d.x0,d.y0,d.x1,d.y1,d.color,d.width)));
+socket.on('drawing',d=>line(d.x0,d.y0,d.x1,d.y1,d.color,d.width));
+socket.on('drawingHistory',h=>h.forEach(d=>line(d.x0,d.y0,d.x1,d.y1,d.color,d.width)));
 
-// CURSORS
-const cursors = {};
-socket.on('cursor', d => cursors[d.id] = d);
+// CURSORS (SMOOTH)
+const cursors={};
+function lerp(a,b,t){return a+(b-a)*t;}
 
-setInterval(() => {
-  ctx.clearRect(0,0,0,0);
-  Object.values(cursors).forEach(c => {
-    ctx.fillStyle='red';
-    ctx.fillRect(c.x,c.y,4,4);
-    ctx.fillText(c.nick,c.x+6,c.y);
+socket.on('cursor',d=>{
+  cursors[d.id] ??= {...d,tx:d.x,ty:d.y};
+  cursors[d.id].tx=d.x;
+  cursors[d.id].ty=d.y;
+});
+socket.on('removeCursor',id=>delete cursors[id]);
+
+function renderCursors(){
+  cursorC.clearRect(0,0,cursor.width,cursor.height);
+  Object.values(cursors).forEach(c=>{
+    c.x=lerp(c.x,c.tx,0.2);
+    c.y=lerp(c.y,c.ty,0.2);
+    cursorC.fillStyle=c.color;
+    cursorC.beginPath();
+    cursorC.arc(c.x,c.y,4,0,Math.PI*2);
+    cursorC.fill();
+    cursorC.fillStyle='#000';
+    cursorC.fillText(c.nick,c.x+6,c.y-6);
   });
-},50);
+  requestAnimationFrame(renderCursors);
+}
+renderCursors();
 
 // CHAT
-const messages = document.getElementById('messages');
-const input = document.getElementById('chatInput');
-let lastSend = 0;
+const msgs = messages;
+let last=0;
 
-input.onkeydown = e => {
-  if(e.key==='Enter'){
-    if(Date.now()-lastSend<1000) return;
-    socket.emit('chatMessage', input.value);
-    input.value='';
-    lastSend=Date.now();
+chatInput.onkeydown=e=>{
+  if(e.key==='Enter' && Date.now()-last>1000){
+    socket.emit('chatMessage',chatInput.value);
+    chatInput.value='';
+    last=Date.now();
   }
 };
 
-socket.on('chatHistory', h => h.forEach(addMsg));
-socket.on('chatMessage', addMsg);
-socket.on('systemMessage', t => addMsg({nick:'*',text:t}));
+socket.on('chatHistory',h=>h.forEach(add));
+socket.on('chatMessage',add);
+socket.on('systemMessage',t=>add({nick:'*',text:t}));
 
-function addMsg(m){
+function add(m){
   const d=document.createElement('div');
   d.textContent=`[${m.nick}] ${m.text}`;
-  messages.appendChild(d);
-  messages.scrollTop=messages.scrollHeight;
+  msgs.appendChild(d);
+  msgs.scrollTop=msgs.scrollHeight;
 }
 </script>
 </body>
