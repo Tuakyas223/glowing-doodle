@@ -9,14 +9,19 @@ const io = new Server(server);
 
 const PORT = 3000;
 
-// Раздаем статические файлы из папки public
 app.use(express.static(path.join(__dirname, 'public')));
+
+// История всех линий
+let drawingHistory = [];
 
 io.on('connection', (socket) => {
   console.log('Новый пользователь подключился');
 
-  // Получаем рисование от одного клиента и шлем всем остальным
+  // Отправляем историю новому клиенту
+  socket.emit('drawingHistory', drawingHistory);
+
   socket.on('drawing', (data) => {
+    drawingHistory.push(data);
     socket.broadcast.emit('drawing', data);
   });
 

@@ -4,12 +4,27 @@
 <meta charset="UTF-8">
 <title>Онлайн Рисовалка</title>
 <style>
-  body { margin: 0; }
-  canvas { border: 1px solid black; display: block; margin: auto; }
+  body { margin: 0; display: flex; flex-direction: column; align-items: center; }
+  canvas { border: 1px solid black; display: block; margin-top: 10px; }
+  #controls { margin-top: 10px; }
 </style>
 </head>
 <body>
+
+<div id="controls">
+  Цвет: 
+  <input type="color" id="colorPicker" value="#000000">
+  Толщина: 
+  <select id="lineWidth">
+    <option value="2">2px</option>
+    <option value="4">4px</option>
+    <option value="6">6px</option>
+    <option value="8">8px</option>
+  </select>
+</div>
+
 <canvas id="canvas"></canvas>
+
 <script src="/socket.io/socket.io.js"></script>
 <script>
 const socket = io();
@@ -17,23 +32,35 @@ const socket = io();
 const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
 canvas.width = window.innerWidth;
-canvas.height = window.innerHeight;
+canvas.height = window.innerHeight - 50; // чуть меньше, чтобы было место под панель
 
 let drawing = false;
 let lastX = 0;
 let lastY = 0;
 
-function drawLine(x0, y0, x1, y1, emit){
+// Настройки кисти
+let color = document.getElementById('colorPicker').value;
+let lineWidth = parseInt(document.getElementById('lineWidth').value);
+
+document.getElementById('colorPicker').addEventListener('input', e => {
+  color = e.target.value;
+});
+
+document.getElementById('lineWidth').addEventListener('change', e => {
+  lineWidth = parseInt(e.target.value);
+});
+
+function drawLine(x0, y0, x1, y1, color, width, emit){
   ctx.beginPath();
   ctx.moveTo(x0, y0);
   ctx.lineTo(x1, y1);
-  ctx.strokeStyle = 'black';
-  ctx.lineWidth = 2;
+  ctx.strokeStyle = color;
+  ctx.lineWidth = width;
   ctx.stroke();
   ctx.closePath();
 
   if (!emit) return;
-  socket.emit('drawing', { x0, y0, x1, y1 });
+  socket.emit('drawing', { x0, y0, x1, y1, color, width });
 }
 
 canvas.addEventListener('mousedown', e => {
@@ -44,7 +71,7 @@ canvas.addEventListener('mousedown', e => {
 
 canvas.addEventListener('mousemove', e => {
   if (!drawing) return;
-  drawLine(lastX, lastY, e.clientX, e.clientY, true);
+  drawLine(lastX, lastY, e.clientX, e.clientY, color, lineWidth, true);
   lastX = e.clientX;
   lastY = e.clientY;
 });
@@ -54,8 +81,14 @@ canvas.addEventListener('mouseout', () => drawing = false);
 
 // Получаем линии от других клиентов
 socket.on('drawing', (data) => {
-  drawLine(data.x0, data.y0, data.x1, data.y1, false);
+  drawLine(data.x0, data.y0, data.x1, data.y1, data.color, data.width, false);
+});
+
+// Получаем историю при подключении
+socket.on('drawingHistory', (history) => {
+  history.forEach(line => drawLine(line.x0, line.y0, line.x1, line.y1, line.color, line.width, false));
 });
 </script>
+
 </body>
 </html>
