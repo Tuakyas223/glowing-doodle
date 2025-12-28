@@ -2,18 +2,19 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<title>Онлайн Рисовалка</title>
+<title>Онлайн Рисовалка с Чатом</title>
 <style>
   body { margin: 0; font-family: Arial, sans-serif; background: #f0f0f0; display: flex; flex-direction: column; align-items: center; }
   
   #controls {
     margin-top: 10px;
     display: flex;
-    gap: 20px;
+    gap: 15px;
     padding: 10px 20px;
     background: #fff;
     border-radius: 10px;
     box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    flex-wrap: wrap;
   }
 
   .color-picker, .line-width-picker {
@@ -22,7 +23,7 @@
     align-items: center;
   }
 
-  .color-btn {
+  .color-btn, .eraser-btn {
     width: 24px;
     height: 24px;
     border-radius: 50%;
@@ -31,7 +32,7 @@
     transition: transform 0.1s;
   }
 
-  .color-btn.selected {
+  .color-btn.selected, .eraser-btn.selected {
     border: 2px solid #000;
     transform: scale(1.2);
   }
@@ -64,6 +65,47 @@
     cursor: crosshair;
     border-radius: 10px;
   }
+
+  #chat {
+    margin-top: 10px;
+    width: 90%;
+    max-width: 800px;
+    background: #fff;
+    border-radius: 10px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    height: 200px;
+  }
+
+  #messages {
+    flex: 1;
+    overflow-y: auto;
+    margin-bottom: 5px;
+  }
+
+  #messages div {
+    margin-bottom: 3px;
+  }
+
+  #chat input {
+    padding: 5px;
+    border-radius: 5px;
+    border: 1px solid #ccc;
+    flex: 1;
+  }
+
+  #chat button {
+    margin-left: 5px;
+    padding: 5px 10px;
+    border-radius: 5px;
+    border: none;
+    background: #333;
+    color: #fff;
+    cursor: pointer;
+  }
+
 </style>
 </head>
 <body>
@@ -76,6 +118,7 @@
     <div class="color-btn" data-color="#00FF00" style="background:#00FF00;"></div>
     <div class="color-btn" data-color="#0000FF" style="background:#0000FF;"></div>
     <div class="color-btn" data-color="#FFA500" style="background:#FFA500;"></div>
+    <div class="eraser-btn" style="background:#fff;border:2px solid #555;" title="Ластик"></div>
   </div>
 
   <div class="line-width-picker">
@@ -89,41 +132,54 @@
 
 <canvas id="canvas"></canvas>
 
+<div id="chat">
+  <div id="messages"></div>
+  <div style="display:flex;">
+    <input type="text" id="chatInput" placeholder="Введите сообщение">
+    <button id="sendBtn">Отправить</button>
+  </div>
+</div>
+
 <script src="/socket.io/socket.io.js"></script>
 <script>
 const socket = io();
-
 const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
 
-// Настраиваем размеры canvas
+// Размеры canvas
 function resizeCanvas() {
   canvas.width = window.innerWidth;
-  canvas.height = window.innerHeight - document.getElementById('controls').offsetHeight - 20;
+  canvas.height = window.innerHeight - document.getElementById('controls').offsetHeight - document.getElementById('chat').offsetHeight - 30;
 }
 window.addEventListener('resize', resizeCanvas);
 resizeCanvas();
-
-// Начальные значения кисти
-let color = '#000000';
-let lineWidth = 2;
 
 let drawing = false;
 let lastX = 0;
 let lastY = 0;
 
-// Кастомный выбор цвета
+let color = '#000000';
+let lineWidth = 2;
+
+// Цвет
 document.querySelectorAll('.color-btn').forEach(btn => {
   btn.addEventListener('click', () => {
-    color = btn.getAttribute('data-color');
-    document.querySelectorAll('.color-btn').forEach(b => b.classList.remove('selected'));
+    color = btn.getAttribute('data-color') || '#fff';
+    document.querySelectorAll('.color-btn, .eraser-btn').forEach(b => b.classList.remove('selected'));
     btn.classList.add('selected');
   });
 });
-// По умолчанию выбираем первый цвет
 document.querySelector('.color-btn').classList.add('selected');
 
-// Кастомный выбор толщины
+// Ластик
+const eraser = document.querySelector('.eraser-btn');
+eraser.addEventListener('click', () => {
+  color = '#fff';
+  document.querySelectorAll('.color-btn, .eraser-btn').forEach(b => b.classList.remove('selected'));
+  eraser.classList.add('selected');
+});
+
+// Толщина
 document.querySelectorAll('.line-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     lineWidth = parseInt(btn.getAttribute('data-width'));
@@ -131,16 +187,13 @@ document.querySelectorAll('.line-btn').forEach(btn => {
     btn.classList.add('selected');
   });
 });
-// По умолчанию выбираем первый размер
 document.querySelector('.line-btn').classList.add('selected');
 
-// Получаем позицию мыши относительно canvas
 function getMousePos(e) {
   const rect = canvas.getBoundingClientRect();
   return { x: e.clientX - rect.left, y: e.clientY - rect.top };
 }
 
-// Рисуем линию
 function drawLine(x0, y0, x1, y1, color, width, emit) {
   ctx.beginPath();
   ctx.moveTo(x0, y0);
@@ -155,7 +208,6 @@ function drawLine(x0, y0, x1, y1, color, width, emit) {
   socket.emit('drawing', { x0, y0, x1, y1, color, width });
 }
 
-// События мыши
 canvas.addEventListener('mousedown', e => {
   drawing = true;
   const pos = getMousePos(e);
@@ -174,16 +226,35 @@ canvas.addEventListener('mousemove', e => {
 canvas.addEventListener('mouseup', () => drawing = false);
 canvas.addEventListener('mouseout', () => drawing = false);
 
-// Получаем линии от других пользователей
 socket.on('drawing', (data) => {
   drawLine(data.x0, data.y0, data.x1, data.y1, data.color, data.width, false);
 });
 
-// История линий
 socket.on('drawingHistory', (history) => {
   history.forEach(line => drawLine(line.x0, line.y0, line.x1, line.y1, line.color, line.width, false));
 });
-</script>
 
+// Чат
+const chatInput = document.getElementById('chatInput');
+const sendBtn = document.getElementById('sendBtn');
+const messages = document.getElementById('messages');
+
+sendBtn.addEventListener('click', sendMessage);
+chatInput.addEventListener('keypress', e => { if(e.key==='Enter') sendMessage(); });
+
+function sendMessage() {
+  const msg = chatInput.value.trim();
+  if(!msg) return;
+  socket.emit('chatMessage', msg);
+  chatInput.value = '';
+}
+
+socket.on('chatMessage', msg => {
+  const div = document.createElement('div');
+  div.textContent = msg;
+  messages.appendChild(div);
+  messages.scrollTop = messages.scrollHeight;
+});
+</script>
 </body>
 </html>

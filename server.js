@@ -11,23 +11,26 @@ const PORT = 3000;
 
 app.use(express.static(path.join(__dirname, 'public')));
 
-// История всех линий
 let drawingHistory = [];
 
 io.on('connection', (socket) => {
   console.log('Новый пользователь подключился');
 
-  // Отправляем историю новому клиенту
+  // История линий
   socket.emit('drawingHistory', drawingHistory);
 
+  // Линии рисования
   socket.on('drawing', (data) => {
     drawingHistory.push(data);
     socket.broadcast.emit('drawing', data);
   });
 
-  socket.on('disconnect', () => {
-    console.log('Пользователь отключился');
+  // Чат
+  socket.on('chatMessage', (msg) => {
+    io.emit('chatMessage', msg); // рассылаем всем
   });
+
+  socket.on('disconnect', () => console.log('Пользователь отключился'));
 });
 
 server.listen(PORT, () => {
